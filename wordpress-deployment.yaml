@@ -1,25 +1,25 @@
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  name: wordpress
+  name: wordpress-1
   labels:
-    app: wordpress
+    app: wordpress-1
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: wordpress
+      app: wordpress-1
   template:
     metadata:
       labels:
-        app: wordpress
+        app: wordpress-1
     spec:
       containers:
         - image: wordpress
           name: wordpress
           env:
           - name: WORDPRESS_DB_HOST
-            value: mysql:3306
+            value: mysql-1:3306
           - name: WORDPRESS_DB_PASSWORD
             valueFrom:
               secretKeyRef:
@@ -27,11 +27,11 @@ spec:
                 key: password
           ports:
             - containerPort: 80
-              name: wordpress
+              name: wordpress-1
           volumeMounts:
-            - name: wordpress-persistent-storage
+            - name: wordpress-persistent-storage-1
               mountPath: /var/www/html
       volumes:
-        - name: wordpress-persistent-storage
+        - name: wordpress-persistent-storage-1
           persistentVolumeClaim:
-            claimName: wordpress-volumeclaim
+            claimName: wordpress-volumeclaim-1
