@@ -1,0 +1,19 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-lb
+spec:
+  selector:
+    matchLabels:
+      app: nginx-lb
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: nginx-lb
+    spec:
+      containers:
+      - name: nginx-lb
+        image: pawelakonom/nginx-lb:v1
+        ports:
+        - containerPort: 80
