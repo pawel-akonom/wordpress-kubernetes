@@ -1,86 +1,160 @@
-1. Creating two debian virtual machines with vagrant
+https://cloud.google.com/kubernetes-engine/docs/tutorials/persistent-disk
 
-2. Install all needed packages - docker-engine, kubeadm, kubelet and kubectl on both debian virtual machines
+https://github.com/pawel-akonom/wordpress-kubernetes
 
-https://kubernetes.io/docs/setup/independent/install-kubeadm/
+------------------------------------------------
 
-3. Create a craster on debian1
+# create volumes
+mint@Akus:~/wordpress-kubernetes$ kubectl apply -f mysql-volumeclaim.yaml
+persistentvolumeclaim "mysql-volumeclaim" created
+mint@Akus:~/wordpress-kubernetes$ kubectl apply -f wordpress-volumeclaim.yaml 
+persistentvolumeclaim "wordpress-volumeclaim" created
+mint@Akus:~/wordpress-kubernetes$ kubectl get pvc
+NAME                    STATUS    VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS   AGE
+mysql-volumeclaim       Bound     pvc-c5d3b90e-aec6-11e8-9dd2-42010a84009b   10Gi       RWO            standard       14s
+wordpress-volumeclaim   Bound     pvc-c9e73d84-aec6-11e8-9dd2-42010a84009b   10Gi       RWO            standard       8s
 
- sudo kubeadm init --node-name debian-1 --apiserver-advertise-address 192.168.100.1 --pod-network-cidr=10.1.0.0/16
+# set database password
+mint@Akus:~/wordpress-kubernetes$ kubectl create secret generic mysql --from-literal=password=mysqlpass
+secret "mysql" created
+mint@Akus:~/wordpress-kubernetes$ kubectl get secrets
+NAME                  TYPE                                  DATA      AGE
+default-token-lldbt   kubernetes.io/service-account-token   3         2d
+mysql                 Opaque                                1         7m
 
-4. Create kubernetes networking with kube-routet
+# create mysql container
+mint@Akus:~/wordpress-kubernetes$ kubectl create -f mysql-deployment.yaml 
+deployment "mysql" created
+mint@Akus:~/wordpress-kubernetes$ kubectl get pods
+NAME                    READY     STATUS    RESTARTS   AGE
+mysql-d55697945-prpwh   1/1       Running   0          14s
 
-  KUBECONFIG=/etc/kubernetes/admin.conf kubectl apply -f https://raw.githubusercontent.com/cloudnativelabs/kube-router/master/daemonset/kubeadm-kuberouter.yaml
+# create mysql service
+mint@Akus:~/wordpress-kubernetes$ kubectl create -f mysql-service.yaml
+service "mysql" created
+mint@Akus:~/wordpress-kubernetes$ kubectl get service mysql
+NAME      TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)    AGE
+mysql     ClusterIP   10.39.248.131   <none>        3306/TCP   12s
 
-  scp .kube/config 192.168.100.2:/home/vagrant/.kube/config
+# create wordpress container
+mint@Akus:~/wordpress-kubernetes$ kubectl create -f wordpress-deployment.yaml 
+deployment "wordpress" created
+mint@Akus:~/wordpress-kubernetes$ kubectl get pods
+NAME                         READY     STATUS    RESTARTS   AGE
+mysql-d55697945-prpwh        1/1       Running   0          1m
+wordpress-7dd5cbc5d5-7852m   1/1       Running   0          13s
 
-  iptables -A INPUT -p tcp -s 192.168.100.2 -j ACCEPT
-  iptables -A OUTPUT -p tcp -d 192.168.100.2 -j ACCEP
+# create wordpress service
+mint@Akus:~/wordpress-kubernetes$ kubectl create -f wordpress-service.yaml
+service "wordpress" created
+mint@Akus:~/wordpress-kubernetes$ kubectl get services
+NAME         TYPE           CLUSTER-IP      EXTERNAL-IP    PORT(S)        AGE
+kubernetes   ClusterIP      10.39.240.1     <none>         443/TCP        2d
+mysql        ClusterIP      10.39.248.131   <none>         3306/TCP       2m
+wordpress    LoadBalancer   10.39.252.201   35.241.152.0   80:30451/TCP   1m
+mint@Akus:~/wordpress-kubernetes$ kubectl get services -l app=wordpress
+NAME        TYPE           CLUSTER-IP      EXTERNAL-IP    PORT(S)        AGE
+wordpress   LoadBalancer   10.39.252.201   35.241.152.0   80:30451/TCP   1m
 
-5. Join the cluster on debian2
+# test wordpress service
 
- sudo kubeadm join 192.168.100.1:6443 --token sv5ws1.ipf5n48cq504fddq --discovery-token-ca-cert-hash sha256:4b04ffe9c2fc3c07eff94e4b7bcc4739b9bcd0d1944f51723c8cbf6e99e02096
+mint@Akus:~/wordpress-kubernetes$ curl -v http://35.241.152.0:80
+* Rebuilt URL to: http://35.241.152.0:80/
+*   Trying 35.241.152.0...
+* TCP_NODELAY set
+* Connected to 35.241.152.0 (35.241.152.0) port 80 (#0)
+> GET / HTTP/1.1
+> Host: 35.241.152.0
+> User-Agent: curl/7.58.0
+> Accept: */*
+> 
+< HTTP/1.1 302 Found
+< Date: Sun, 02 Sep 2018 15:49:03 GMT
+< Server: Apache/2.4.25 (Debian)
+< X-Powered-By: PHP/7.2.9
+< Expires: Wed, 11 Jan 1984 05:00:00 GMT
+< Cache-Control: no-cache, must-revalidate, max-age=0
+< Location: http://35.241.152.0/wp-admin/install.php
+< Content-Length: 0
+< Content-Type: text/html; charset=UTF-8
+< 
+* Connection #0 to host 35.241.152.0 left intact
 
-6. check all cluster nodes on master node - debian1
+------------------------------------------------
 
-vagrant@debian-1:~$ kubectl get nodes
-NAME       STATUS    AGE       VERSION
-debian-1   Ready     17m       v1.11.2
-debian-2   Ready     24s       v1.11.2
+Added a second wordpress service connected to the same database
 
-6. test kubernetes cluster
+------------------------------------------------
 
-vagrant@debian-1:~$ kubectl run nginx-kube-test --image nginx --port=80
-deployment "nginx-kube-test" created
+# custom docker image with nginx
 
-vagrant@debian-1:~$ kubectl expose deployment nginx-kube-test --type=NodePort
-service "nginx-kube-test" expose
+mint@Akus:~/wordpress-kubernetes$ sudo docker build -t nginx-lb:v1 .
+mint@Akus:~/wordpress-kubernetes$ sudo docker tag nginx-lb:v1 pawelakonom/nginx-lb:v1
+mint@Akus:~/wordpress-kubernetes$ sudo docker push pawelakonom/nginx-lb:v1
+The push refers to repository [docker.io/pawelakonom/nginx]
+d302a5b6657d: Pushed 
+64ef7c2d456f: Pushed 
+7f2cffb520ed: Pushed 
+cdb3f9544e4c: Pushed 
+v1: digest: sha256:1caaad34f6f17ba69ab6d79d9a3f86f5cef5a64dd71c2523c036b6b991b74255 size: 1155
 
-vagrant@debian-1:~$ kubectl get deployment
-NAME              DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
-nginx-kube-test   1         1         1            0           19s
+# create nginx load balancer in kubernets cluster
 
-# find exposed port
-vagrant@debian-1:~$ kubectl get services
-NAME              CLUSTER-IP    EXTERNAL-IP   PORT(S)        AGE
-nginx-kube-test   10.96.36.63   <nodes>       80:31070/TCP   17s
-kubernetes        10.96.0.1     <none>        443/TCP        19
+mint@Akus:~/wordpress-kubernetes$ kubectl apply -f nginx-deployment.yaml 
+deployment "nginx-deployment" created
+mint@Akus:~/wordpress-kubernetes$ kubectl get pods
+NAME                           READY     STATUS        RESTARTS   AGE
+mysql-1-84b7885485-nzdsg       1/1       Running       0          3h
+nginx-lb-5d89d4b8df-bm9pt      1/1       Running       0          12s
+wordpress-1-77dc96bbdb-wsx29   1/1       Running       0          3h
+wordpress-2-5d86fb98b9-4xtsv   1/1       Running       0          3h
+mint@Akus:~/wordpress-kubernetes$ kubectl apply -f nginx-lb-service.yaml 
+service "nginx-lb" created
+mint@Akus:~/wordpress-kubernetes$ kubectl get services
+NAME          TYPE           CLUSTER-IP      EXTERNAL-IP       PORT(S)        AGE
+kubernetes    ClusterIP      10.39.240.1     <none>            443/TCP        2d
+mysql-1       ClusterIP      10.39.242.130   <none>            3306/TCP       3h
+nginx-lb      LoadBalancer   10.39.243.38    104.155.106.229   80:30814/TCP   46s
+wordpress-1   LoadBalancer   10.39.252.232   35.241.133.240    80:32252/TCP   3h
+wordpress-2   LoadBalancer   10.39.241.190   35.241.133.211    80:31528/TCP   2h
 
-# find node where nginx is running
-vagrant@debian-1:~$ kubectl describe pod nginx-kube-test | grep Node:
-Node:		debian-2/10.0.2.15
+# test connection to load balancer
 
-# on mother OS connect to debian2 on port 31070
+mint@Akus:~/wordpress-kubernetes$ curl -X HEAD -I 104.155.106.229
+HTTP/1.1 200 OK
+Server: nginx/1.15.3
+Date: Sun, 02 Sep 2018 21:05:40 GMT
+Content-Type: text/html; charset=UTF-8
+Connection: keep-alive
+X-Powered-By: PHP/7.2.9
+Link: <http://104.155.106.229/wp-json/>; rel="https://api.w.org/"
+Link: <http://104.155.106.229/>; rel=shortlink
 
-mint@Akus:~$ curl http://192.168.100.2:31070/
+# check private ip of nginx pod
 
-<!DOCTYPE html>
-<html>
-<head>
-<title>Welcome to nginx!</title>
-<style>
-    body {
-        width: 35em;
-        margin: 0 auto;
-        font-family: Tahoma, Verdana, Arial, sans-serif;
-    }
-</style>
-</head>
-<body>
-<h1>Welcome to nginx!</h1>
-<p>If you see this page, the nginx web server is successfully installed and
-working. Further configuration is required.</p>
+mint@Akus:~/wordpress-kubernetes$ kubectl get pods -o wide
+NAME                           READY     STATUS    RESTARTS   AGE       IP           NODE
+mysql-1-84b7885485-nzdsg       1/1       Running   0          3h        10.36.0.30   gke-kubernetes-homework-default-pool-d82146af-9sw4
+nginx-lb-5d89d4b8df-bm9pt      1/1       Running   0          20m       10.36.1.14   gke-kubernetes-homework-default-pool-d82146af-mwp1
+wordpress-1-77dc96bbdb-wsx29   1/1       Running   0          3h        10.36.0.33   gke-kubernetes-homework-default-pool-d82146af-9sw4
+wordpress-2-5d86fb98b9-4xtsv   1/1       Running   0          3h        10.36.1.4    gke-kubernetes-homework-default-pool-d82146af-mwp1
 
-<p>For online documentation and support please refer to
-<a href="http://nginx.org/">nginx.org</a>.<br/>
-Commercial support is available at
-<a href="http://nginx.com/">nginx.com</a>.</p>
+check the IP of the http request in the wordpress pod logs
 
-<p><em>Thank you for using nginx.</em></p>
-</body>
-</html>
+mint@Akus:~/wordpress-kubernetes$ kubectl logs wordpress-1-77dc96bbdb-wsx29 | tail -n 5
+10.36.1.14 - - [02/Sep/2018:20:59:20 +0000] "GET / HTTP/1.0" 200 19658 "-" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/66.0.3359.181 Safari/537.36"
+10.36.1.14 - - [02/Sep/2018:20:59:20 +0000] "GET / HTTP/1.0" 200 19658 "-" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/66.0.3359.181 Safari/537.36"
+10.36.1.14 - - [02/Sep/2018:20:59:21 +0000] "GET / HTTP/1.0" 200 19658 "-" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/66.0.3359.181 Safari/537.36"
+10.36.1.14 - - [02/Sep/2018:20:59:21 +0000] "GET / HTTP/1.0" 200 19658 "-" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/66.0.3359.181 Safari/537.36"
+10.36.1.14 - - [02/Sep/2018:21:05:40 +0000] "HEAD / HTTP/1.0" 200 287 "-" "curl/7.58.0"
+mint@Akus:~/wordpress-kubernetes$ kubectl logs wordpress-2-5d86fb98b9-4xtsv | tail -n 5
+10.36.1.14 - - [02/Sep/2018:20:59:20 +0000] "GET /favicon.ico HTTP/1.0" 200 191 "http://104.155.106.229/" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/66.0.3359.181 Safari/537.36"
+10.36.1.14 - - [02/Sep/2018:20:59:21 +0000] "GET /favicon.ico HTTP/1.0" 200 191 "http://104.155.106.229/" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/66.0.3359.181 Safari/537.36"
+10.36.1.14 - - [02/Sep/2018:20:59:21 +0000] "GET /favicon.ico HTTP/1.0" 200 191 "http://104.155.106.229/" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/66.0.3359.181 Safari/537.36"
+10.36.1.14 - - [02/Sep/2018:21:04:24 +0000] "GET / HTTP/1.0" 200 60238 "-" "curl/7.58.0"
+10.36.1.14 - - [02/Sep/2018:21:04:53 +0000] "GET / HTTP/1.0" 200 60238 "-" "curl/7.58.0"
 
-
+# 10.36.1.14 is in both worpdess, load balancers is working
 
 
 
