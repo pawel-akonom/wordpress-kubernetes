@@ -32,9 +32,9 @@ mysql-d55697945-prpwh   1/1       Running   0          14s
 # create mysql service
 mint@Akus:~/wordpress-kubernetes$ kubectl create -f mysql-service.yaml
 service "mysql" created
-mint@Akus:~/wordpress-kubernetes$ kubectl get service mysql
+mint@Akus:~/wordpress-kubernetes$ kubectl get service mysql-1
 NAME      TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)    AGE
-mysql     ClusterIP   10.39.248.131   <none>        3306/TCP   12s
+mysql-1     ClusterIP   10.39.248.131   <none>        3306/TCP   12s
 
 # create wordpress container
 mint@Akus:~/wordpress-kubernetes$ kubectl create -f wordpress-deployment.yaml 

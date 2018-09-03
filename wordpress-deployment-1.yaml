@@ -19,7 +19,7 @@ spec:
           name: wordpress
           env:
           - name: WORDPRESS_DB_HOST
-            value: mysql-1:3306
+            value: mysql:3306
           - name: WORDPRESS_DB_PASSWORD
             valueFrom:
               secretKeyRef:
@@ -41,49 +41,4 @@ spec:
       volumes:
         - name: wordpress-persistent-storage-1
           persistentVolumeClaim:
-            claimName: wordpress-volumeclaim-1
----
-apiVersion: extensions/v1beta1
-kind: Deployment
-metadata:
-  name: wordpress-2
-  labels:
-    app: wordpress-2
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: wordpress-2
-  template:
-    metadata:
-      labels:
-        app: wordpress-2
-    spec:
-      containers:
-        - image: wordpress
-          name: wordpress
-          env:
-          - name: WORDPRESS_DB_HOST
-            value: mysql-1:3306
-          - name: WORDPRESS_DB_PASSWORD
-            valueFrom:
-              secretKeyRef:
-                name: mysql
-                key: password
-          resources:
-            requests:
-              memory: "512Mi"
-              cpu: "100m"
-            limits:
-              memory: "1024Mi"
-              cpu: "200m"
-          ports:
-            - containerPort: 80
-              name: wordpress-2
-          volumeMounts:
-            - name: wordpress-persistent-storage-2
-              mountPath: /var/www/html
-      volumes:
-        - name: wordpress-persistent-storage-2
-          persistentVolumeClaim:
-            claimName: wordpress-volumeclaim-2
+            claimName: wordpress-volume-1
