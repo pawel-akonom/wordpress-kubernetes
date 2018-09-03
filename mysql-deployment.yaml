@@ -1,18 +1,18 @@
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  name: mysql-1
+  name: mysql
   labels:
-    app: mysql-1
+    app: mysql
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: mysql-1
+      app: mysql
   template:
     metadata:
       labels:
-        app: mysql-1
+        app: mysql
     spec:
       containers:
         - image: mysql:5.6
@@ -32,11 +32,11 @@ spec:
               cpu: "200m"
           ports:
             - containerPort: 3306
-              name: mysql-1
+              name: mysql
           volumeMounts:
-            - name: mysql-persistent-storage-1
+            - name: mysql-persistent-storage
               mountPath: /var/lib/mysql
       volumes:
-        - name: mysql-persistent-storage-1
+        - name: mysql-persistent-storage
           persistentVolumeClaim:
-            claimName: mysql-volumeclaim-1
+            claimName: mysql-volume
