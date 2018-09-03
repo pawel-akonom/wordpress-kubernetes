@@ -13,7 +13,15 @@ spec:
         app: nginx-lb
     spec:
       containers:
-      - name: nginx-lb
-        image: pawelakonom/nginx-lb:v10
-        ports:
-        - containerPort: 80
+        - image: pawelakonom/nginx-lb:v12
+          name: nginx-lb
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "100m"
+            limits:
+              memory: "1024Mi"
+              cpu: "200m"
+          ports:
+            - containerPort: 80
+              name: nginx-lb

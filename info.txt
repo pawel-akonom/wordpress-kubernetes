@@ -156,7 +156,79 @@ mint@Akus:~/wordpress-kubernetes$ kubectl logs wordpress-2-5d86fb98b9-4xtsv | ta
 
 # 10.36.1.14 is in both worpdess, load balancers is working
 
+------------------------------------------------
 
+# add memcached to docker image
+# install memcached, configure nginx
 
+# build new docker image and publish
 
+mint@Akus:~/wordpress-kubernetes$ sudo docker build -t nginx-lb:v12 docker-nginx
+mint@Akus:~/wordpress-kubernetes$ sudo docker tag nginx-lb:v12 pawelakonom/nginx-lb:v12
+mint@Akus:~/wordpress-kubernetes$ sudo docker push pawelakonom/nginx-lb:v12
+
+# update nginx-deployment.yaml with docker image v12
+
+mint@Akus:~/wordpress-kubernetes$ kubectl delete deployments nginx-lb
+deployment "nginx-lb" deleted
+mint@Akus:~/wordpress-kubernetes$ kubectl apply -f nginx-deployment.yaml 
+deployment "nginx-lb" created
+mint@Akus:~/wordpress-kubernetes$ kubectl get pods
+NAME                           READY     STATUS        RESTARTS   AGE
+mysql-8dcfd975c-czqh2          1/1       Running       0          9h
+nginx-lb-c86c54989-dzhsr       1/1       Terminating   0          6m
+nginx-lb-c86c54989-vmldk       1/1       Running       0          7s
+wordpress-1-6d7bb6784-xvb85    1/1       Running       0          9h
+wordpress-2-867f546b6c-4hltp   1/1       Running       0          9h
+
+# test memcached
+
+mint@Akus:~/wordpress-kubernetes$ curl -I http://onna.serveblog.net/
+HTTP/1.1 200 OK
+Server: nginx/1.15.3
+Date: Mon, 03 Sep 2018 19:32:24 GMT
+Content-Type: text/html; charset=UTF-8
+Connection: keep-alive
+X-Powered-By: PHP/7.2.9
+Link: <http://onna.serveblog.net/wp-json/>; rel="https://api.w.org/"
+mint@Akus:~/wordpress-kubernetes$ curl -I http://onna.serveblog.net/
+HTTP/1.1 200 OK
+Server: nginx/1.15.3
+Date: Mon, 03 Sep 2018 19:32:52 GMT
+Content-Type: text/html; charset=UTF-8
+Connection: keep-alive
+X-Powered-By: PHP/7.2.9
+Link: <http://onna.serveblog.net/wp-json/>; rel="https://api.w.org/"
+mint@Akus:~/wordpress-kubernetes$ curl -I http://onna.serveblog.net/
+HTTP/1.1 200 OK
+Server: nginx/1.15.3
+Date: Mon, 03 Sep 2018 19:32:53 GMT
+Content-Type: text/html; charset=UTF-8
+Connection: keep-alive
+X-Powered-By: PHP/7.2.9
+Link: <http://onna.serveblog.net/wp-json/>; rel="https://api.w.org/"
+
+mint@Akus:~/wordpress-kubernetes$ kubectl logs nginx-lb-c86c54989-vmldk
+Starting memcached: memcached.
+10.132.0.2 - - [03/Sep/2018:19:32:24 +0000] "POST /wp-cron.php?doing_wp_cron=1536003144.7486290931701660156250 HTTP/1.1" 405 173 "http://onna.serveblog.net/wp-cron.php?doing_wp_cron=1536003144.7486290931701660156250" "WordPress/4.9.8; http://onna.serveblog.net"
+10.132.0.2 - - [03/Sep/2018:19:32:24 +0000] "HEAD / HTTP/1.1" 200 0 "-" "curl/7.58.0"
+10.36.1.1 - - [03/Sep/2018:19:32:52 +0000] "HEAD / HTTP/1.1" 200 0 "-" "curl/7.58.0"
+10.132.0.2 - - [03/Sep/2018:19:32:53 +0000] "HEAD / HTTP/1.1" 200 0 "-" "curl/7.58.0"
+
+mint@Akus:~/wordpress-kubernetes$ kubectl exec nginx-lb-c86c54989-vmldk cat /var/log/memcached.log
+
+<27 new auto-negotiating client connection
+27: Client using the ascii protocol
+<27 get /?
+>27 END
+<27 connection closed.
+<27 new auto-negotiating client connection
+27: Client using the ascii protocol
+<27 get /?
+>27 END
+<27 connection closed.
+<27 new auto-negotiating client connection
+27: Client using the ascii protocol
+<27 get /favicon.ico?
+>27 END
 
