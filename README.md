@@ -1,5 +1,3 @@
-# Using Persistent Disks with WordPress and MySQL
+# WordPress with MySQL and load balancer on kubernetes cluster
 
-Follow this tutorial at https://cloud.google.com/kubernetes-engine/docs/tutorials/persistent-disk/
-
-
+http://onna.serveblog.net/
